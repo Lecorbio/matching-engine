@@ -5,11 +5,11 @@
 std::vector<Trade> MatchingEngine::submit(Order order) {
     std::vector<Trade> trades;
 
-    OrderBook& same_side = order.side == Side::Buy ? bids_ : asks_;
-    OrderBook& opposite_side = order.side == Side::Buy ? asks_ : bids_;
+    OrderBook& same_side = order.side == Side::BUY ? bids_ : asks_;
+    OrderBook& opposite_side = order.side == Side::BUY ? asks_ : bids_;
 
     auto crosses = [&](double opposite_price) {
-        if (order.side == Side::Buy) {
+        if (order.side == Side::BUY) {
             return order.price >= opposite_price;
         }
         return order.price <= opposite_price;
@@ -20,8 +20,8 @@ std::vector<Trade> MatchingEngine::submit(Order order) {
         const int executed_qty = std::min(order.quantity, resting.quantity);
 
         trades.push_back({
-            order.side == Side::Buy ? order.id : resting.id,
-            order.side == Side::Buy ? resting.id : order.id,
+            order.side == Side::BUY ? order.id : resting.id,
+            order.side == Side::BUY ? resting.id : order.id,
             resting.price,
             executed_qty
         });

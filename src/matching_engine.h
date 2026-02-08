@@ -12,6 +12,6 @@ public:
     const OrderBook& asks() const { return asks_; }
 
 private:
-    OrderBook bids_{Side::Buy};
-    OrderBook asks_{Side::Sell};
+    OrderBook bids_{Side::BUY};
+    OrderBook asks_{Side::SELL};
 };

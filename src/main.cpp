@@ -5,8 +5,8 @@
 int main() {
     MatchingEngine engine;
 
-    engine.submit({1, Side::Buy, 101.5, 10});
-    auto trades = engine.submit({2, Side::Sell, 100.5, 6});
+    engine.submit({1, Side::BUY, 101.5, 10});
+    auto trades = engine.submit({2, Side::SELL, 100.5, 6});
 
     std::cout << "Executed " << trades.size() << " trade(s):\n";
     for (const auto& trade : trades) {

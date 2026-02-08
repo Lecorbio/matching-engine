@@ -1,6 +1,6 @@
 #pragma once
 
-enum class Side { Buy, Sell };
+enum class Side { BUY, SELL };
 
 struct Order {
     int id;

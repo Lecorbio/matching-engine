@@ -21,9 +21,9 @@ public:
 
 private:
     struct PriceComparator {
-        explicit PriceComparator(Side side = Side::Buy) : side(side) {}
+        explicit PriceComparator(Side side) : side(side) {}
         bool operator()(double lhs, double rhs) const {
-            return side == Side::Buy ? lhs > rhs : lhs < rhs;
+            return side == Side::BUY ? lhs > rhs : lhs < rhs;
         }
         Side side;
     };
