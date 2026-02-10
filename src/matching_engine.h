@@ -7,6 +7,7 @@
 class MatchingEngine {
 public:
     std::vector<Trade> submit(Order order);
+    bool cancel(int order_id);
 
     const OrderBook& bids() const { return bids_; }
     const OrderBook& asks() const { return asks_; }

@@ -11,11 +11,13 @@ public:
     explicit OrderBook(Side side);
 
     void add(const Order& order);
+    bool cancel(int order_id);
+    void consume_best();
+
     bool empty() const;
     double best_price() const;
     Order& best_order();
     const Order& best_order() const;
-    void consume_best();
     std::size_t order_count() const;
     Side side() const;
 

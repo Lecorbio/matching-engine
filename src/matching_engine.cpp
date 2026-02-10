@@ -40,3 +40,10 @@ std::vector<Trade> MatchingEngine::submit(Order order) {
 
     return trades;
 }
+
+bool MatchingEngine::cancel(int order_id) {
+    if (bids_.cancel(order_id)) {
+        return true;
+    }
+    return asks_.cancel(order_id);
+}

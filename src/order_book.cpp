@@ -40,6 +40,24 @@ void OrderBook::consume_best() {
     }
 }
 
+bool OrderBook::cancel(int order_id) {
+    for (auto level_it = levels_.begin(); level_it != levels_.end(); level_it++) {
+        auto& queue = level_it->second;
+        for (auto order_it = queue.begin(); order_it != queue.end(); order_it++) {
+            if (order_it->id != order_id) {
+                continue;
+            }
+
+            queue.erase(order_it);
+            if (queue.empty()) {
+                levels_.erase(level_it);
+            }
+            return true;
+        }
+    }
+    return false;
+}
+
 std::size_t OrderBook::order_count() const {
     std::size_t total = 0;
     for (const auto& [_, queue] : levels_) {

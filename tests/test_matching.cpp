@@ -32,6 +32,18 @@ int main() {
     assert(t4[0].price == 101.0);
     assert(engine.asks().empty());
 
+    MatchingEngine cancel_engine;
+    auto t5 = cancel_engine.submit({6, Side::BUY, 102.0, 3});
+    assert(t5.empty());
+    auto t6 = cancel_engine.submit({7, Side::BUY, 100.0, 2});
+    assert(t6.empty());
+    assert(cancel_engine.bids().best_price() == 102.0);
+
+    assert(cancel_engine.cancel(6));
+    assert(cancel_engine.bids().best_price() == 100.0);
+    assert(!cancel_engine.cancel(6));
+    assert(!cancel_engine.cancel(9999));
+
     std::cout << "All matching tests passed.\n";
     return 0;
 }
