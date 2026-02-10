@@ -1,2 +1,0 @@
-/usr/bin/ar qc libmatching_engine.a CMakeFiles/matching_engine.dir/src/matching_engine.cpp.o CMakeFiles/matching_engine.dir/src/order_book.cpp.o
-/usr/bin/ranlib libmatching_engine.a
