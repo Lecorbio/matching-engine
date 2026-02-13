@@ -4,8 +4,16 @@
 
 #include "order_book.h"
 
+enum class RejectReason {
+    NONE,
+    INVALID_PRICE,
+    INVALID_QUANTITY,
+    DUPLICATE_ORDER_ID
+};
+
 struct SubmitResult {
     bool accepted = false;
+    RejectReason reject_reason = RejectReason::NONE;
     std::vector<Trade> trades;
 };
 

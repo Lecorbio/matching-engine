@@ -4,10 +4,22 @@
 
 SubmitResult MatchingEngine::submit(Order order) {
     SubmitResult result;
-    if (order.price <= 0.0 || order.quantity <= 0 || has_order(order.id)) {
+    
+    if (order.price <= 0.0) {
+        result.reject_reason = RejectReason::INVALID_PRICE;
         return result;
     }
+    if (order.quantity <= 0) {
+        result.reject_reason = RejectReason::INVALID_QUANTITY;
+        return result;
+    }
+    if (has_order(order.id)) {
+        result.reject_reason = RejectReason::DUPLICATE_ORDER_ID;
+        return result;
+    }
+
     result.accepted = true;
+    result.reject_reason = RejectReason::NONE;
 
     OrderBook& same_side = order.side == Side::BUY ? bids_ : asks_;
     OrderBook& opposite_side = order.side == Side::BUY ? asks_ : bids_;
@@ -38,7 +50,7 @@ SubmitResult MatchingEngine::submit(Order order) {
         }
     }
 
-    if (order.quantity > 0) {
+    if (order.quantity > 0 && order.tif == TimeInForce::GTC) {
         same_side.add(order);
     }
 
