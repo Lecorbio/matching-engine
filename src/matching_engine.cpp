@@ -2,8 +2,12 @@
 
 #include <algorithm>
 
-std::vector<Trade> MatchingEngine::submit(Order order) {
-    std::vector<Trade> trades;
+SubmitResult MatchingEngine::submit(Order order) {
+    SubmitResult result;
+    if (order.price <= 0.0 || order.quantity <= 0 || has_order(order.id)) {
+        return result;
+    }
+    result.accepted = true;
 
     OrderBook& same_side = order.side == Side::BUY ? bids_ : asks_;
     OrderBook& opposite_side = order.side == Side::BUY ? asks_ : bids_;
@@ -19,7 +23,7 @@ std::vector<Trade> MatchingEngine::submit(Order order) {
         Order& resting = opposite_side.best_order();
         const int executed_qty = std::min(order.quantity, resting.quantity);
 
-        trades.push_back({
+        result.trades.push_back({
             order.side == Side::BUY ? order.id : resting.id,
             order.side == Side::BUY ? resting.id : order.id,
             resting.price,
@@ -38,7 +42,7 @@ std::vector<Trade> MatchingEngine::submit(Order order) {
         same_side.add(order);
     }
 
-    return trades;
+    return result;
 }
 
 bool MatchingEngine::cancel(int order_id) {
@@ -46,4 +50,8 @@ bool MatchingEngine::cancel(int order_id) {
         return true;
     }
     return asks_.cancel(order_id);
+}
+
+bool MatchingEngine::has_order(int order_id) const {
+    return bids_.contains(order_id) || asks_.contains(order_id);
 }

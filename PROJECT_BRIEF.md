@@ -2,19 +2,22 @@
 
 Goals:
 - Implement a simple limit order book with price-time priority (best price first, FIFO at each price).
-- Support limit orders, partial fills, and generate trade records on matches.
+- Support limit orders, partial fills, cancel by order id, and generate trade records on matches.
 - Keep code minimal, readable, and beginner-friendly C++.
 
 Core behavior:
 - Separate bids/asks; maintain price levels with queues to preserve order arrival.
 - Matching: an incoming order executes against the best opposite prices until filled or no match; leftover rests in book.
 - Partial fills allowed; track remaining quantity per order.
+- Cancel: remove a resting order by id and return whether cancel succeeded.
+- Submit API returns `SubmitResult { accepted, trades }`.
+- Safety checks reject duplicate ids and non-positive price/quantity.
 - Emit trades with price, quantity, and the involved order ids.
 
 Out of scope for MVP (future work):
 - Market orders that cross the book fully.
-- Cancel by order id.
 - Benchmarking harness to measure throughput/latency.
+- Rejection reason codes for failed submissions.
 
 Non-goals:
 - Persistent storage, networking, or concurrency; keep it single-threaded and in-memory.

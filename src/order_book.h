@@ -14,6 +14,7 @@ public:
     bool cancel(int order_id);
     void consume_best();
 
+    bool contains(int order_id) const;
     bool empty() const;
     double best_price() const;
     Order& best_order();
