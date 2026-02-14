@@ -8,7 +8,8 @@ enum class RejectReason {
     NONE,
     INVALID_PRICE,
     INVALID_QUANTITY,
-    DUPLICATE_ORDER_ID
+    DUPLICATE_ORDER_ID,
+    NO_LIQUIDITY
 };
 
 struct SubmitResult {

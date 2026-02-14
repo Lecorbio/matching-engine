@@ -2,7 +2,7 @@
 
 Goals:
 - Implement a simple limit order book with price-time priority (best price first, FIFO at each price).
-- Support limit orders, partial fills, cancel by order id, IOC/GTC time-in-force, and generate trade records on matches.
+- Support limit/market orders, partial fills, cancel by order id, IOC/GTC time-in-force, and generate trade records on matches.
 - Keep code minimal, readable, and beginner-friendly C++.
 
 Core behavior:
@@ -15,11 +15,14 @@ Core behavior:
 - Time-in-force supports:
   - `GTC` (rest leftover quantity),
   - `IOC` (cancel leftover quantity immediately).
+- Order type supports:
+  - `LIMIT` (price-bounded crossing),
+  - `MARKET` (immediate crossing at best available prices, leftover canceled).
 - Emit trades with price, quantity, and the involved order ids.
 
 Out of scope for MVP (future work):
-- Market orders that cross the book fully.
 - Benchmarking harness to measure throughput/latency.
+- Depth snapshot API for top N levels.
 
 Non-goals:
 - Persistent storage, networking, or concurrency; keep it single-threaded and in-memory.

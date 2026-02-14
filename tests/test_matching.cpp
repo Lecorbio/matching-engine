@@ -115,6 +115,50 @@ int main() {
     assert(tif_engine.bids().empty());
     assert(!tif_engine.has_order(202));
 
+    MatchingEngine market_engine;
+    auto market_no_liquidity =
+        market_engine.submit({300, Side::BUY, 0.0, 3, TimeInForce::IOC, OrderType::MARKET});
+    assert(!market_no_liquidity.accepted);
+    assert(market_no_liquidity.reject_reason == RejectReason::NO_LIQUIDITY);
+    assert(market_no_liquidity.trades.empty());
+
+    auto m0 = market_engine.submit({301, Side::SELL, 100.0, 2});
+    assert(m0.accepted);
+    auto m1 = market_engine.submit({302, Side::SELL, 101.0, 3});
+    assert(m1.accepted);
+    assert(market_engine.asks().order_count() == 2);
+
+    auto market_buy = market_engine.submit({303, Side::BUY, -5.0, 7, TimeInForce::GTC, OrderType::MARKET});
+    assert(market_buy.accepted);
+    assert(market_buy.reject_reason == RejectReason::NONE);
+    assert(market_buy.trades.size() == 2);
+    assert(market_buy.trades[0].quantity == 2);
+    assert(market_buy.trades[0].price == 100.0);
+    assert(market_buy.trades[1].quantity == 3);
+    assert(market_buy.trades[1].price == 101.0);
+    assert(market_engine.asks().empty());
+    assert(market_engine.bids().empty());
+    assert(!market_engine.has_order(303));
+
+    MatchingEngine market_sell_engine;
+    auto m2 = market_sell_engine.submit({400, Side::BUY, 100.0, 2});
+    assert(m2.accepted);
+    auto m3 = market_sell_engine.submit({401, Side::BUY, 99.0, 4});
+    assert(m3.accepted);
+
+    auto market_sell =
+        market_sell_engine.submit({402, Side::SELL, 1000.0, 3, TimeInForce::IOC, OrderType::MARKET});
+    assert(market_sell.accepted);
+    assert(market_sell.reject_reason == RejectReason::NONE);
+    assert(market_sell.trades.size() == 2);
+    assert(market_sell.trades[0].quantity == 2);
+    assert(market_sell.trades[0].price == 100.0);
+    assert(market_sell.trades[1].quantity == 1);
+    assert(market_sell.trades[1].price == 99.0);
+    assert(market_sell_engine.asks().empty());
+    assert(market_sell_engine.bids().order_count() == 1);
+    assert(!market_sell_engine.has_order(402));
+
     std::cout << "All matching tests passed.\n";
     return 0;
 }

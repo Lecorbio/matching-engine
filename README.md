@@ -1,6 +1,6 @@
 # Matching Engine (Mini Exchange)
 
-Simple, single-threaded limit order book in C++ with price-time priority. It keeps bids/asks in memory, supports limit orders, partial fills, cancel by order id, IOC/GTC time-in-force, and emits trades when orders match.
+Simple, single-threaded limit order book in C++ with price-time priority. It keeps bids/asks in memory, supports limit and market orders, partial fills, cancel by order id, IOC/GTC time-in-force, and emits trades when orders match.
 
 `submit` returns a `SubmitResult`:
 - `accepted`: whether the order passed validation and entered matching.
@@ -10,7 +10,8 @@ Simple, single-threaded limit order book in C++ with price-time priority. It kee
 Validation currently rejects:
 - duplicate order ids already resting in the book,
 - non-positive price,
-- non-positive quantity.
+- non-positive quantity,
+- market orders when the opposite book has no liquidity.
 
 ## Layout
 - `src/` core matching engine and book code.
@@ -27,11 +28,18 @@ Time-in-force behavior:
 - `GTC`: leftover quantity rests in the book.
 - `IOC`: leftover quantity is canceled immediately.
 
+Order type behavior:
+- `LIMIT`: matches only at limit price or better.
+- `MARKET`: matches immediately against best opposite prices and never rests leftover quantity.
+
 ## Next steps
-- Add market orders.
 - Add basic performance benchmarking.
+- Add a depth snapshot API (top N levels) for analytics and debugging.
 
 ## Run tests
 ```bash
 ctest --test-dir build --output-on-failure
 ```
+
+## License
+MIT. See `LICENSE`.

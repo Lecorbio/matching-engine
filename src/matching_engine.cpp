@@ -4,13 +4,13 @@
 
 SubmitResult MatchingEngine::submit(Order order) {
     SubmitResult result;
-    
-    if (order.price <= 0.0) {
-        result.reject_reason = RejectReason::INVALID_PRICE;
-        return result;
-    }
+
     if (order.quantity <= 0) {
         result.reject_reason = RejectReason::INVALID_QUANTITY;
+        return result;
+    }
+    if (order.type == OrderType::LIMIT && order.price <= 0.0) {
+        result.reject_reason = RejectReason::INVALID_PRICE;
         return result;
     }
     if (has_order(order.id)) {
@@ -18,13 +18,20 @@ SubmitResult MatchingEngine::submit(Order order) {
         return result;
     }
 
+    OrderBook& same_side = order.side == Side::BUY ? bids_ : asks_;
+    OrderBook& opposite_side = order.side == Side::BUY ? asks_ : bids_;
+    if (order.type == OrderType::MARKET && opposite_side.empty()) {
+        result.reject_reason = RejectReason::NO_LIQUIDITY;
+        return result;
+    }
+
     result.accepted = true;
     result.reject_reason = RejectReason::NONE;
 
-    OrderBook& same_side = order.side == Side::BUY ? bids_ : asks_;
-    OrderBook& opposite_side = order.side == Side::BUY ? asks_ : bids_;
-
     auto crosses = [&](double opposite_price) {
+        if (order.type == OrderType::MARKET) {
+            return true;
+        }
         if (order.side == Side::BUY) {
             return order.price >= opposite_price;
         }
@@ -50,7 +57,7 @@ SubmitResult MatchingEngine::submit(Order order) {
         }
     }
 
-    if (order.quantity > 0 && order.tif == TimeInForce::GTC) {
+    if (order.quantity > 0 && order.type == OrderType::LIMIT && order.tif == TimeInForce::GTC) {
         same_side.add(order);
     }
 
