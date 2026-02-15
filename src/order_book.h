@@ -16,7 +16,7 @@ public:
 
     bool contains(int order_id) const;
     bool empty() const;
-    double best_price() const;
+    PriceTicks best_price_ticks() const;
     Order& best_order();
     const Order& best_order() const;
     std::size_t order_count() const;
@@ -25,7 +25,7 @@ public:
 private:
     struct PriceComparator {
         explicit PriceComparator(Side side) : side(side) {}
-        bool operator()(double lhs, double rhs) const {
+        bool operator()(PriceTicks lhs, PriceTicks rhs) const {
             return side == Side::BUY ? lhs > rhs : lhs < rhs;
         }
         Side side;
@@ -33,5 +33,5 @@ private:
 
     Side side_;
     PriceComparator comparator_;
-    std::map<double, std::deque<Order>, PriceComparator> levels_;
+    std::map<PriceTicks, std::deque<Order>, PriceComparator> levels_;
 };

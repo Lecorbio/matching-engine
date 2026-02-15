@@ -6,7 +6,7 @@ OrderBook::OrderBook(Side side)
     : side_(side), comparator_(side), levels_(comparator_) {}
 
 void OrderBook::add(const Order& order) {
-    levels_[order.price].push_back(order);
+    levels_[order.price_ticks].push_back(order);
 }
 
 bool OrderBook::cancel(int order_id) {
@@ -57,7 +57,7 @@ bool OrderBook::empty() const {
     return levels_.empty();
 }
 
-double OrderBook::best_price() const {
+PriceTicks OrderBook::best_price_ticks() const {
     return levels_.begin()->first;
 }
 

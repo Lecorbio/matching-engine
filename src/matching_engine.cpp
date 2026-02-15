@@ -9,7 +9,7 @@ SubmitResult MatchingEngine::submit(Order order) {
         result.reject_reason = RejectReason::INVALID_QUANTITY;
         return result;
     }
-    if (order.type == OrderType::LIMIT && order.price <= 0.0) {
+    if (order.type == OrderType::LIMIT && order.price_ticks <= 0) {
         result.reject_reason = RejectReason::INVALID_PRICE;
         return result;
     }
@@ -28,24 +28,25 @@ SubmitResult MatchingEngine::submit(Order order) {
     result.accepted = true;
     result.reject_reason = RejectReason::NONE;
 
-    auto crosses = [&](double opposite_price) {
+    auto crosses = [&](PriceTicks opposite_price_ticks) {
         if (order.type == OrderType::MARKET) {
             return true;
         }
         if (order.side == Side::BUY) {
-            return order.price >= opposite_price;
+            return order.price_ticks >= opposite_price_ticks;
         }
-        return order.price <= opposite_price;
+        return order.price_ticks <= opposite_price_ticks;
     };
 
-    while (order.quantity > 0 && !opposite_side.empty() && crosses(opposite_side.best_price())) {
+    while (order.quantity > 0 && !opposite_side.empty() &&
+           crosses(opposite_side.best_price_ticks())) {
         Order& resting = opposite_side.best_order();
         const int executed_qty = std::min(order.quantity, resting.quantity);
 
         result.trades.push_back({
             order.side == Side::BUY ? order.id : resting.id,
             order.side == Side::BUY ? resting.id : order.id,
-            resting.price,
+            resting.price_ticks,
             executed_qty
         });
 

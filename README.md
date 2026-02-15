@@ -13,6 +13,9 @@ Validation currently rejects:
 - non-positive quantity,
 - market orders when the opposite book has no liquidity.
 
+Prices are represented internally as integer ticks (`PriceTicks`) to avoid floating-point precision errors.
+Use `price_to_ticks(...)` when constructing orders and `ticks_to_price(...)` only when formatting output.
+
 ## Layout
 - `src/` core matching engine and book code.
 - `tests/` assertions for matching, partial fills, cancel behavior, and safety validation.
