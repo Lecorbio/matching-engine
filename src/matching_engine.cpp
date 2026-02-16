@@ -72,6 +72,56 @@ bool MatchingEngine::cancel(int order_id) {
     return asks_.cancel(order_id);
 }
 
+SubmitResult MatchingEngine::replace(int order_id, PriceTicks new_price_ticks, int new_quantity) {
+    SubmitResult result;
+
+    if (new_quantity <= 0) {
+        result.reject_reason = RejectReason::INVALID_QUANTITY;
+        return result;
+    }
+    if (new_price_ticks <= 0) {
+        result.reject_reason = RejectReason::INVALID_PRICE;
+        return result;
+    }
+
+    OrderBook* same_side = nullptr;
+    Order* existing = bids_.find_mutable(order_id);
+    if (existing != nullptr) {
+        same_side = &bids_;
+    } else {
+        existing = asks_.find_mutable(order_id);
+        if (existing != nullptr) {
+            same_side = &asks_;
+        }
+    }
+
+    if (existing == nullptr || same_side == nullptr) {
+        result.reject_reason = RejectReason::ORDER_NOT_FOUND;
+        return result;
+    }
+
+    if (existing->price_ticks == new_price_ticks && new_quantity <= existing->quantity) {
+        existing->quantity = new_quantity;
+        result.accepted = true;
+        result.reject_reason = RejectReason::NONE;
+        return result;
+    }
+
+    auto removed = same_side->remove(order_id);
+    if (!removed.has_value()) {
+        result.reject_reason = RejectReason::ORDER_NOT_FOUND;
+        return result;
+    }
+
+    Order replacement = removed.value();
+    replacement.price_ticks = new_price_ticks;
+    replacement.quantity = new_quantity;
+    replacement.tif = TimeInForce::GTC;
+    replacement.type = OrderType::LIMIT;
+
+    return submit(replacement);
+}
+
 bool MatchingEngine::has_order(int order_id) const {
     return bids_.contains(order_id) || asks_.contains(order_id);
 }

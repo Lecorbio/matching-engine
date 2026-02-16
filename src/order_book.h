@@ -1,8 +1,10 @@
 #pragma once
 
 #include <cstddef>
-#include <deque>
+#include <list>
 #include <map>
+#include <optional>
+#include <unordered_map>
 
 #include "types.h"
 
@@ -15,6 +17,9 @@ public:
     void consume_best();
 
     bool contains(int order_id) const;
+    Order* find_mutable(int order_id);
+    const Order* find(int order_id) const;
+    std::optional<Order> remove(int order_id);
     bool empty() const;
     PriceTicks best_price_ticks() const;
     Order& best_order();
@@ -31,7 +36,16 @@ private:
         Side side;
     };
 
+    using LevelQueue = std::list<Order>;
+    using Levels = std::map<PriceTicks, LevelQueue, PriceComparator>;
+
+    struct Locator {
+        Levels::iterator level_it;
+        LevelQueue::iterator order_it;
+    };
+
     Side side_;
     PriceComparator comparator_;
-    std::map<PriceTicks, std::deque<Order>, PriceComparator> levels_;
+    Levels levels_;
+    std::unordered_map<int, Locator> order_index_;
 };

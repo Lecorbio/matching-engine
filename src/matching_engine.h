@@ -9,7 +9,8 @@ enum class RejectReason {
     INVALID_PRICE,
     INVALID_QUANTITY,
     DUPLICATE_ORDER_ID,
-    NO_LIQUIDITY
+    NO_LIQUIDITY,
+    ORDER_NOT_FOUND
 };
 
 struct SubmitResult {
@@ -22,6 +23,7 @@ class MatchingEngine {
 public:
     SubmitResult submit(Order order);
     bool cancel(int order_id);
+    SubmitResult replace(int order_id, PriceTicks new_price_ticks, int new_quantity);
 
     bool has_order(int order_id) const;
     const OrderBook& bids() const { return bids_; }

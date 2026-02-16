@@ -1,30 +1,63 @@
 #include "order_book.h"
 
-#include <numeric>
+#include <cassert>
 
 OrderBook::OrderBook(Side side)
     : side_(side), comparator_(side), levels_(comparator_) {}
 
 void OrderBook::add(const Order& order) {
-    levels_[order.price_ticks].push_back(order);
+    auto level_it = levels_.find(order.price_ticks);
+    if (level_it == levels_.end()) {
+        level_it = levels_.emplace(order.price_ticks, LevelQueue{}).first;
+    }
+    auto& queue = level_it->second;
+    queue.push_back(order);
+
+    auto order_it = queue.end();
+    --order_it;
+    [[maybe_unused]] const bool inserted =
+        order_index_.emplace(order.id, Locator{level_it, order_it}).second;
+    assert(inserted && "Duplicate order id added to OrderBook");
 }
 
 bool OrderBook::cancel(int order_id) {
-    for (auto level_it = levels_.begin(); level_it != levels_.end(); level_it++) {
-        auto& queue = level_it->second;
-        for (auto order_it = queue.begin(); order_it != queue.end(); order_it++) {
-            if (order_it->id != order_id) {
-                continue;
-            }
+    return remove(order_id).has_value();
+}
 
-            queue.erase(order_it);
-            if (queue.empty()) {
-                levels_.erase(level_it);
-            }
-            return true;
-        }
+Order* OrderBook::find_mutable(int order_id) {
+    auto index_it = order_index_.find(order_id);
+    if (index_it == order_index_.end()) {
+        return nullptr;
     }
-    return false;
+
+    return &(*index_it->second.order_it);
+}
+
+const Order* OrderBook::find(int order_id) const {
+    auto index_it = order_index_.find(order_id);
+    if (index_it == order_index_.end()) {
+        return nullptr;
+    }
+
+    return &(*index_it->second.order_it);
+}
+
+std::optional<Order> OrderBook::remove(int order_id) {
+    auto index_it = order_index_.find(order_id);
+    if (index_it == order_index_.end()) {
+        return std::nullopt;
+    }
+
+    auto level_it = index_it->second.level_it;
+    auto order_it = index_it->second.order_it;
+    Order removed = *order_it;
+    level_it->second.erase(order_it);
+    if (level_it->second.empty()) {
+        levels_.erase(level_it);
+    }
+
+    order_index_.erase(index_it);
+    return removed;
 }
 
 void OrderBook::consume_best() {
@@ -32,25 +65,20 @@ void OrderBook::consume_best() {
         return;
     }
 
-    auto it = levels_.begin();
-    if (!it->second.empty()) {
-        it->second.pop_front();
+    auto level_it = levels_.begin();
+    auto& queue = level_it->second;
+    if (!queue.empty()) {
+        order_index_.erase(queue.front().id);
+        queue.pop_front();
     }
 
-    if (it->second.empty()) {
-        levels_.erase(it);
+    if (queue.empty()) {
+        levels_.erase(level_it);
     }
 }
 
 bool OrderBook::contains(int order_id) const {
-    for (const auto& [_, queue] : levels_) {
-        for (const auto& order : queue) {
-            if (order.id == order_id) {
-                return true;
-            }
-        }
-    }
-    return false;
+    return order_index_.find(order_id) != order_index_.end();
 }
 
 bool OrderBook::empty() const {
@@ -70,11 +98,7 @@ const Order& OrderBook::best_order() const {
 }
 
 std::size_t OrderBook::order_count() const {
-    std::size_t total = 0;
-    for (const auto& [_, queue] : levels_) {
-        total += queue.size();
-    }
-    return total;
+    return order_index_.size();
 }
 
 Side OrderBook::side() const {

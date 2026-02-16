@@ -66,6 +66,73 @@ int main() {
     assert(!cancel_engine.cancel(6));
     assert(!cancel_engine.cancel(9999));
 
+    MatchingEngine replace_engine;
+    auto replace_not_found = replace_engine.replace(999, px(100.0), 1);
+    assert(!replace_not_found.accepted);
+    assert(replace_not_found.reject_reason == RejectReason::ORDER_NOT_FOUND);
+    assert(replace_not_found.trades.empty());
+
+    auto r0 = replace_engine.submit({50, Side::BUY, px(100.0), 5});
+    assert(r0.accepted);
+    auto r1 = replace_engine.submit({51, Side::BUY, px(100.0), 5});
+    assert(r1.accepted);
+
+    auto replace_bad_qty = replace_engine.replace(50, px(100.0), 0);
+    assert(!replace_bad_qty.accepted);
+    assert(replace_bad_qty.reject_reason == RejectReason::INVALID_QUANTITY);
+    assert(replace_engine.has_order(50));
+
+    auto keep_priority = replace_engine.replace(50, px(100.0), 2);
+    assert(keep_priority.accepted);
+    assert(keep_priority.reject_reason == RejectReason::NONE);
+    assert(keep_priority.trades.empty());
+    assert(replace_engine.has_order(50));
+
+    auto priority_sell = replace_engine.submit({52, Side::SELL, px(100.0), 3});
+    assert(priority_sell.accepted);
+    assert(priority_sell.trades.size() == 2);
+    assert(priority_sell.trades[0].buy_order_id == 50);
+    assert(priority_sell.trades[0].quantity == 2);
+    assert(priority_sell.trades[1].buy_order_id == 51);
+    assert(priority_sell.trades[1].quantity == 1);
+
+    MatchingEngine replace_requeue_engine;
+    auto rr0 = replace_requeue_engine.submit({60, Side::BUY, px(100.0), 2});
+    assert(rr0.accepted);
+    auto rr1 = replace_requeue_engine.submit({61, Side::BUY, px(100.0), 2});
+    assert(rr1.accepted);
+
+    auto lose_priority = replace_requeue_engine.replace(60, px(100.0), 5);
+    assert(lose_priority.accepted);
+    assert(lose_priority.reject_reason == RejectReason::NONE);
+    assert(lose_priority.trades.empty());
+
+    auto requeue_sell = replace_requeue_engine.submit({62, Side::SELL, px(100.0), 3});
+    assert(requeue_sell.accepted);
+    assert(requeue_sell.trades.size() == 2);
+    assert(requeue_sell.trades[0].buy_order_id == 61);
+    assert(requeue_sell.trades[0].quantity == 2);
+    assert(requeue_sell.trades[1].buy_order_id == 60);
+    assert(requeue_sell.trades[1].quantity == 1);
+
+    MatchingEngine replace_cross_engine;
+    auto rc0 = replace_cross_engine.submit({70, Side::BUY, px(100.0), 3});
+    assert(rc0.accepted);
+    auto rc1 = replace_cross_engine.submit({71, Side::SELL, px(102.0), 2});
+    assert(rc1.accepted);
+
+    auto crossing_replace = replace_cross_engine.replace(70, px(103.0), 3);
+    assert(crossing_replace.accepted);
+    assert(crossing_replace.reject_reason == RejectReason::NONE);
+    assert(crossing_replace.trades.size() == 1);
+    assert(crossing_replace.trades[0].buy_order_id == 70);
+    assert(crossing_replace.trades[0].sell_order_id == 71);
+    assert(crossing_replace.trades[0].quantity == 2);
+    assert(crossing_replace.trades[0].price_ticks == px(102.0));
+    assert(replace_cross_engine.asks().empty());
+    assert(replace_cross_engine.has_order(70));
+    assert(replace_cross_engine.bids().best_price_ticks() == px(103.0));
+
     MatchingEngine safety_engine;
     auto s0 = safety_engine.submit({100, Side::BUY, px(101.0), 5});
     assert(s0.accepted);
