@@ -5,6 +5,7 @@
 #include <map>
 #include <optional>
 #include <unordered_map>
+#include <vector>
 
 #include "types.h"
 
@@ -24,6 +25,7 @@ public:
     PriceTicks best_price_ticks() const;
     Order& best_order();
     const Order& best_order() const;
+    std::vector<BookLevel> depth(std::size_t n_levels) const;
     std::size_t order_count() const;
     Side side() const;
 

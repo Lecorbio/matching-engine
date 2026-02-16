@@ -40,9 +40,13 @@ Replace behavior:
 - Same price and quantity decrease (or unchanged quantity): keeps queue priority.
 - Price change or quantity increase: loses queue priority (effectively cancel + new submit).
 
+Market data API behavior:
+- `top_of_book()`: returns optional best bid/ask levels with aggregated quantity at each best price.
+- `depth(n_levels)`: returns top `n_levels` aggregated levels for bids and asks.
+
 ## Next steps
 - Add basic performance benchmarking.
-- Add a depth snapshot API (top N levels) for analytics and debugging.
+- Add incremental book event feeds (ADD/CANCEL/REPLACE/TRADE) with sequence numbers.
 
 ## Run tests
 ```bash

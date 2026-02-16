@@ -66,6 +66,74 @@ int main() {
     assert(!cancel_engine.cancel(6));
     assert(!cancel_engine.cancel(9999));
 
+    MatchingEngine market_data_engine;
+    auto md_top0 = market_data_engine.top_of_book();
+    assert(!md_top0.best_bid.has_value());
+    assert(!md_top0.best_ask.has_value());
+    auto md_snapshot0 = market_data_engine.depth(3);
+    assert(md_snapshot0.bids.empty());
+    assert(md_snapshot0.asks.empty());
+
+    auto md0 = market_data_engine.submit({500, Side::BUY, px(101.0), 2});
+    assert(md0.accepted);
+    auto md1 = market_data_engine.submit({501, Side::BUY, px(101.0), 3});
+    assert(md1.accepted);
+    auto md2 = market_data_engine.submit({502, Side::BUY, px(100.0), 4});
+    assert(md2.accepted);
+    auto md3 = market_data_engine.submit({503, Side::SELL, px(103.0), 1});
+    assert(md3.accepted);
+    auto md4 = market_data_engine.submit({504, Side::SELL, px(103.0), 2});
+    assert(md4.accepted);
+    auto md5 = market_data_engine.submit({505, Side::SELL, px(104.0), 5});
+    assert(md5.accepted);
+
+    auto md_top1 = market_data_engine.top_of_book();
+    assert(md_top1.best_bid.has_value());
+    assert(md_top1.best_bid->price_ticks == px(101.0));
+    assert(md_top1.best_bid->quantity == 5);
+    assert(md_top1.best_ask.has_value());
+    assert(md_top1.best_ask->price_ticks == px(103.0));
+    assert(md_top1.best_ask->quantity == 3);
+
+    auto md_snapshot1 = market_data_engine.depth(2);
+    assert(md_snapshot1.bids.size() == 2);
+    assert(md_snapshot1.asks.size() == 2);
+    assert(md_snapshot1.bids[0].price_ticks == px(101.0));
+    assert(md_snapshot1.bids[0].quantity == 5);
+    assert(md_snapshot1.bids[1].price_ticks == px(100.0));
+    assert(md_snapshot1.bids[1].quantity == 4);
+    assert(md_snapshot1.asks[0].price_ticks == px(103.0));
+    assert(md_snapshot1.asks[0].quantity == 3);
+    assert(md_snapshot1.asks[1].price_ticks == px(104.0));
+    assert(md_snapshot1.asks[1].quantity == 5);
+
+    assert(market_data_engine.cancel(501));
+    auto md_top2 = market_data_engine.top_of_book();
+    assert(md_top2.best_bid.has_value());
+    assert(md_top2.best_bid->price_ticks == px(101.0));
+    assert(md_top2.best_bid->quantity == 2);
+
+    auto md_replace = market_data_engine.replace(500, px(99.0), 2);
+    assert(md_replace.accepted);
+    assert(md_replace.trades.empty());
+    auto md_snapshot2 = market_data_engine.depth(3);
+    assert(md_snapshot2.bids.size() == 2);
+    assert(md_snapshot2.bids[0].price_ticks == px(100.0));
+    assert(md_snapshot2.bids[0].quantity == 4);
+    assert(md_snapshot2.bids[1].price_ticks == px(99.0));
+    assert(md_snapshot2.bids[1].quantity == 2);
+
+    auto md_trade = market_data_engine.submit({506, Side::SELL, px(100.0), 1});
+    assert(md_trade.accepted);
+    assert(md_trade.trades.size() == 1);
+    auto md_top3 = market_data_engine.top_of_book();
+    assert(md_top3.best_bid.has_value());
+    assert(md_top3.best_bid->price_ticks == px(100.0));
+    assert(md_top3.best_bid->quantity == 3);
+    assert(md_top3.best_ask.has_value());
+    assert(md_top3.best_ask->price_ticks == px(103.0));
+    assert(md_top3.best_ask->quantity == 3);
+
     MatchingEngine replace_engine;
     auto replace_not_found = replace_engine.replace(999, px(100.0), 1);
     assert(!replace_not_found.accepted);

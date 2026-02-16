@@ -97,6 +97,30 @@ const Order& OrderBook::best_order() const {
     return levels_.begin()->second.front();
 }
 
+std::vector<BookLevel> OrderBook::depth(std::size_t n_levels) const {
+    std::vector<BookLevel> levels;
+    if (n_levels == 0) {
+        return levels;
+    }
+
+    const std::size_t max_levels = n_levels < levels_.size() ? n_levels : levels_.size();
+    levels.reserve(max_levels);
+
+    for (const auto& [price_ticks, queue] : levels_) {
+        int level_quantity = 0;
+        for (const auto& order : queue) {
+            level_quantity += order.quantity;
+        }
+
+        levels.push_back(BookLevel{price_ticks, level_quantity});
+        if (levels.size() == n_levels) {
+            break;
+        }
+    }
+
+    return levels;
+}
+
 std::size_t OrderBook::order_count() const {
     return order_index_.size();
 }

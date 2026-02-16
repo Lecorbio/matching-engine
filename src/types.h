@@ -2,6 +2,8 @@
 
 #include <cmath>
 #include <cstdint>
+#include <optional>
+#include <vector>
 
 enum class Side { BUY, SELL };
 enum class TimeInForce { GTC, IOC };
@@ -32,4 +34,19 @@ struct Trade {
     int sell_order_id;
     PriceTicks price_ticks;
     int quantity;
+};
+
+struct BookLevel {
+    PriceTicks price_ticks;
+    int quantity;
+};
+
+struct TopOfBook {
+    std::optional<BookLevel> best_bid;
+    std::optional<BookLevel> best_ask;
+};
+
+struct BookSnapshot {
+    std::vector<BookLevel> bids;
+    std::vector<BookLevel> asks;
 };

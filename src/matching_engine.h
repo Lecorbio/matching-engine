@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <vector>
 
 #include "order_book.h"
@@ -24,6 +25,8 @@ public:
     SubmitResult submit(Order order);
     bool cancel(int order_id);
     SubmitResult replace(int order_id, PriceTicks new_price_ticks, int new_quantity);
+    TopOfBook top_of_book() const;
+    BookSnapshot depth(std::size_t n_levels) const;
 
     bool has_order(int order_id) const;
     const OrderBook& bids() const { return bids_; }

@@ -22,10 +22,13 @@ Core behavior:
   - `LIMIT` (price-bounded crossing),
   - `MARKET` (immediate crossing at best available prices, leftover canceled).
 - Emit trades with price, quantity, and the involved order ids.
+- Market data supports:
+  - top-of-book snapshots with aggregated best-level quantity,
+  - depth snapshots for top N price levels per side.
 
 Out of scope for MVP (future work):
 - Benchmarking harness to measure throughput/latency.
-- Depth snapshot API for top N levels.
+- Incremental event feed with deterministic sequence numbers.
 
 Non-goals:
 - Persistent storage, networking, or concurrency; keep it single-threaded and in-memory.

@@ -122,6 +122,29 @@ SubmitResult MatchingEngine::replace(int order_id, PriceTicks new_price_ticks, i
     return submit(replacement);
 }
 
+TopOfBook MatchingEngine::top_of_book() const {
+    TopOfBook top;
+
+    auto bid_depth = bids_.depth(1);
+    if (!bid_depth.empty()) {
+        top.best_bid = bid_depth.front();
+    }
+
+    auto ask_depth = asks_.depth(1);
+    if (!ask_depth.empty()) {
+        top.best_ask = ask_depth.front();
+    }
+
+    return top;
+}
+
+BookSnapshot MatchingEngine::depth(std::size_t n_levels) const {
+    BookSnapshot snapshot;
+    snapshot.bids = bids_.depth(n_levels);
+    snapshot.asks = asks_.depth(n_levels);
+    return snapshot;
+}
+
 bool MatchingEngine::has_order(int order_id) const {
     return bids_.contains(order_id) || asks_.contains(order_id);
 }
