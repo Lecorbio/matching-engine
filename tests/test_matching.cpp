@@ -9,7 +9,7 @@ PriceTicks px(double price) {
     return price_to_ticks(price);
 }
 
-}  
+}  // namespace
 
 int main() {
     MatchingEngine engine;
@@ -65,6 +65,107 @@ int main() {
     assert(cancel_engine.bids().best_price_ticks() == px(100.0));
     assert(!cancel_engine.cancel(6));
     assert(!cancel_engine.cancel(9999));
+
+    MatchingEngine event_engine;
+    assert(event_engine.last_seq_num() == 0);
+    assert(event_engine.event_log().empty());
+    assert(event_engine.events_since(0).empty());
+
+    auto e0 = event_engine.submit({800, Side::BUY, px(100.0), 5});
+    assert(e0.accepted);
+    assert(event_engine.last_seq_num() == 1);
+    const auto& log0 = event_engine.event_log();
+    assert(log0.size() == 1);
+    assert(log0[0].seq_num == 1);
+    assert(log0[0].type == BookEventType::ADD);
+    assert(log0[0].order_id.has_value());
+    assert(log0[0].order_id.value() == 800);
+    assert(log0[0].side.has_value());
+    assert(log0[0].side.value() == Side::BUY);
+    assert(log0[0].price_ticks.has_value());
+    assert(log0[0].price_ticks.value() == px(100.0));
+    assert(log0[0].quantity.has_value());
+    assert(log0[0].quantity.value() == 5);
+
+    auto e1 = event_engine.submit({801, Side::SELL, px(99.0), 2});
+    assert(e1.accepted);
+    assert(e1.trades.size() == 1);
+    assert(event_engine.last_seq_num() == 2);
+    const auto& log1 = event_engine.event_log();
+    assert(log1.size() == 2);
+    assert(log1[1].seq_num == 2);
+    assert(log1[1].type == BookEventType::TRADE);
+    assert(log1[1].buy_order_id.has_value());
+    assert(log1[1].buy_order_id.value() == 800);
+    assert(log1[1].sell_order_id.has_value());
+    assert(log1[1].sell_order_id.value() == 801);
+    assert(log1[1].price_ticks.has_value());
+    assert(log1[1].price_ticks.value() == px(100.0));
+    assert(log1[1].quantity.has_value());
+    assert(log1[1].quantity.value() == 2);
+
+    auto e2 = event_engine.replace(800, px(100.0), 1);
+    assert(e2.accepted);
+    assert(event_engine.last_seq_num() == 3);
+    const auto& log2 = event_engine.event_log();
+    assert(log2.size() == 3);
+    assert(log2[2].seq_num == 3);
+    assert(log2[2].type == BookEventType::REPLACE);
+    assert(log2[2].order_id.has_value());
+    assert(log2[2].order_id.value() == 800);
+    assert(log2[2].old_price_ticks.has_value());
+    assert(log2[2].old_price_ticks.value() == px(100.0));
+    assert(log2[2].old_quantity.has_value());
+    assert(log2[2].old_quantity.value() == 3);
+    assert(log2[2].price_ticks.has_value());
+    assert(log2[2].price_ticks.value() == px(100.0));
+    assert(log2[2].quantity.has_value());
+    assert(log2[2].quantity.value() == 1);
+
+    assert(event_engine.cancel(800));
+    assert(event_engine.last_seq_num() == 4);
+    const auto& log3 = event_engine.event_log();
+    assert(log3.size() == 4);
+    assert(log3[3].seq_num == 4);
+    assert(log3[3].type == BookEventType::CANCEL);
+    assert(log3[3].order_id.has_value());
+    assert(log3[3].order_id.value() == 800);
+    assert(log3[3].quantity.has_value());
+    assert(log3[3].quantity.value() == 1);
+
+    auto e3 = event_engine.replace(99999, px(101.0), 1);
+    assert(!e3.accepted);
+    assert(e3.reject_reason == RejectReason::ORDER_NOT_FOUND);
+    assert(event_engine.last_seq_num() == 4);
+    assert(event_engine.event_log().size() == 4);
+
+    auto e4 = event_engine.submit({810, Side::BUY, px(100.0), 2});
+    assert(e4.accepted);
+    auto e5 = event_engine.submit({811, Side::SELL, px(102.0), 2});
+    assert(e5.accepted);
+    assert(event_engine.last_seq_num() == 6);
+
+    auto e6 = event_engine.replace(810, px(103.0), 2);
+    assert(e6.accepted);
+    assert(e6.trades.size() == 1);
+    assert(event_engine.last_seq_num() == 8);
+    const auto& log4 = event_engine.event_log();
+    assert(log4.size() == 8);
+    assert(log4[6].seq_num == 7);
+    assert(log4[6].type == BookEventType::REPLACE);
+    assert(log4[7].seq_num == 8);
+    assert(log4[7].type == BookEventType::TRADE);
+    assert(log4[7].buy_order_id.has_value());
+    assert(log4[7].buy_order_id.value() == 810);
+    assert(log4[7].sell_order_id.has_value());
+    assert(log4[7].sell_order_id.value() == 811);
+
+    auto since_four = event_engine.events_since(4);
+    assert(since_four.size() == 4);
+    assert(since_four[0].seq_num == 5);
+    assert(since_four[1].seq_num == 6);
+    assert(since_four[2].seq_num == 7);
+    assert(since_four[3].seq_num == 8);
 
     MatchingEngine market_data_engine;
     auto md_top0 = market_data_engine.top_of_book();

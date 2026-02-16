@@ -50,3 +50,21 @@ struct BookSnapshot {
     std::vector<BookLevel> bids;
     std::vector<BookLevel> asks;
 };
+
+enum class BookEventType { ADD, TRADE, CANCEL, REPLACE };
+
+struct BookEvent {
+    std::uint64_t seq_num = 0;
+    BookEventType type = BookEventType::ADD;
+
+    std::optional<int> order_id;
+    std::optional<Side> side;
+    std::optional<PriceTicks> price_ticks;
+    std::optional<int> quantity;
+
+    std::optional<int> buy_order_id;
+    std::optional<int> sell_order_id;
+
+    std::optional<PriceTicks> old_price_ticks;
+    std::optional<int> old_quantity;
+};

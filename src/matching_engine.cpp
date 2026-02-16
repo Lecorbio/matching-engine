@@ -2,6 +2,53 @@
 
 #include <algorithm>
 
+void MatchingEngine::push_event(BookEvent event) {
+    event.seq_num = next_seq_num_++;
+    events_.push_back(event);
+}
+
+void MatchingEngine::push_trade_event(const Trade& trade) {
+    BookEvent event;
+    event.type = BookEventType::TRADE;
+    event.price_ticks = trade.price_ticks;
+    event.quantity = trade.quantity;
+    event.buy_order_id = trade.buy_order_id;
+    event.sell_order_id = trade.sell_order_id;
+    push_event(event);
+}
+
+void MatchingEngine::push_add_event(const Order& order) {
+    BookEvent event;
+    event.type = BookEventType::ADD;
+    event.order_id = order.id;
+    event.side = order.side;
+    event.price_ticks = order.price_ticks;
+    event.quantity = order.quantity;
+    push_event(event);
+}
+
+void MatchingEngine::push_cancel_event(const Order& order) {
+    BookEvent event;
+    event.type = BookEventType::CANCEL;
+    event.order_id = order.id;
+    event.side = order.side;
+    event.price_ticks = order.price_ticks;
+    event.quantity = order.quantity;
+    push_event(event);
+}
+
+void MatchingEngine::push_replace_event(const Order& old_order, const Order& new_order) {
+    BookEvent event;
+    event.type = BookEventType::REPLACE;
+    event.order_id = old_order.id;
+    event.side = old_order.side;
+    event.old_price_ticks = old_order.price_ticks;
+    event.old_quantity = old_order.quantity;
+    event.price_ticks = new_order.price_ticks;
+    event.quantity = new_order.quantity;
+    push_event(event);
+}
+
 SubmitResult MatchingEngine::submit(Order order) {
     SubmitResult result;
 
@@ -49,6 +96,7 @@ SubmitResult MatchingEngine::submit(Order order) {
             resting.price_ticks,
             executed_qty
         });
+        push_trade_event(result.trades.back());
 
         order.quantity -= executed_qty;
         resting.quantity -= executed_qty;
@@ -60,16 +108,25 @@ SubmitResult MatchingEngine::submit(Order order) {
 
     if (order.quantity > 0 && order.type == OrderType::LIMIT && order.tif == TimeInForce::GTC) {
         same_side.add(order);
+        push_add_event(order);
     }
 
     return result;
 }
 
 bool MatchingEngine::cancel(int order_id) {
-    if (bids_.cancel(order_id)) {
+    auto removed_bid = bids_.remove(order_id);
+    if (removed_bid.has_value()) {
+        push_cancel_event(removed_bid.value());
         return true;
     }
-    return asks_.cancel(order_id);
+
+    auto removed_ask = asks_.remove(order_id);
+    if (removed_ask.has_value()) {
+        push_cancel_event(removed_ask.value());
+        return true;
+    }
+    return false;
 }
 
 SubmitResult MatchingEngine::replace(int order_id, PriceTicks new_price_ticks, int new_quantity) {
@@ -101,7 +158,9 @@ SubmitResult MatchingEngine::replace(int order_id, PriceTicks new_price_ticks, i
     }
 
     if (existing->price_ticks == new_price_ticks && new_quantity <= existing->quantity) {
+        const Order old_order = *existing;
         existing->quantity = new_quantity;
+        push_replace_event(old_order, *existing);
         result.accepted = true;
         result.reject_reason = RejectReason::NONE;
         return result;
@@ -118,6 +177,7 @@ SubmitResult MatchingEngine::replace(int order_id, PriceTicks new_price_ticks, i
     replacement.quantity = new_quantity;
     replacement.tif = TimeInForce::GTC;
     replacement.type = OrderType::LIMIT;
+    push_replace_event(removed.value(), replacement);
 
     return submit(replacement);
 }
@@ -143,6 +203,23 @@ BookSnapshot MatchingEngine::depth(std::size_t n_levels) const {
     snapshot.bids = bids_.depth(n_levels);
     snapshot.asks = asks_.depth(n_levels);
     return snapshot;
+}
+
+std::uint64_t MatchingEngine::last_seq_num() const {
+    if (events_.empty()) {
+        return 0;
+    }
+    return events_.back().seq_num;
+}
+
+std::vector<BookEvent> MatchingEngine::events_since(std::uint64_t seq_num) const {
+    std::vector<BookEvent> events;
+    for (const auto& event : events_) {
+        if (event.seq_num > seq_num) {
+            events.push_back(event);
+        }
+    }
+    return events;
 }
 
 bool MatchingEngine::has_order(int order_id) const {

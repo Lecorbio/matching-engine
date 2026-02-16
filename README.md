@@ -43,10 +43,11 @@ Replace behavior:
 Market data API behavior:
 - `top_of_book()`: returns optional best bid/ask levels with aggregated quantity at each best price.
 - `depth(n_levels)`: returns top `n_levels` aggregated levels for bids and asks.
+- `event_log()` and `events_since(seq_num)`: provide sequenced incremental events (`ADD`, `TRADE`, `CANCEL`, `REPLACE`).
 
 ## Next steps
 - Add basic performance benchmarking.
-- Add incremental book event feeds (ADD/CANCEL/REPLACE/TRADE) with sequence numbers.
+- Add deterministic replay from CSV event streams.
 
 ## Run tests
 ```bash

@@ -28,6 +28,20 @@ std::string fmt_optional_level(const std::optional<BookLevel>& level) {
     return fmt_level(level.value());
 }
 
+const char* event_type_to_cstr(BookEventType type) {
+    switch (type) {
+        case BookEventType::ADD:
+            return "ADD";
+        case BookEventType::TRADE:
+            return "TRADE";
+        case BookEventType::CANCEL:
+            return "CANCEL";
+        case BookEventType::REPLACE:
+            return "REPLACE";
+    }
+    return "UNKNOWN";
+}
+
 const char* reject_reason_to_cstr(RejectReason reason) {
     switch (reason) {
         case RejectReason::NONE:
@@ -106,58 +120,106 @@ void print_submit_outcome(const SubmitResult& result) {
     print_trades(result.trades);
 }
 
+void print_events_since(const MatchingEngine& engine, std::uint64_t& last_seen_seq_num) {
+    const auto events = engine.events_since(last_seen_seq_num);
+    if (events.empty()) {
+        std::cout << "Events: none\n";
+        return;
+    }
+
+    std::cout << "Events (" << events.size() << "):\n";
+    for (const auto& event : events) {
+        std::cout << "  #" << event.seq_num << " " << event_type_to_cstr(event.type);
+        if (event.order_id.has_value()) {
+            std::cout << " oid=" << event.order_id.value();
+        }
+        if (event.side.has_value()) {
+            std::cout << " side=" << (event.side.value() == Side::BUY ? "BUY" : "SELL");
+        }
+        if (event.old_price_ticks.has_value()) {
+            std::cout << " old_px=" << fmt_price(event.old_price_ticks.value());
+        }
+        if (event.old_quantity.has_value()) {
+            std::cout << " old_qty=" << event.old_quantity.value();
+        }
+        if (event.price_ticks.has_value()) {
+            std::cout << " px=" << fmt_price(event.price_ticks.value());
+        }
+        if (event.quantity.has_value()) {
+            std::cout << " qty=" << event.quantity.value();
+        }
+        if (event.buy_order_id.has_value() && event.sell_order_id.has_value()) {
+            std::cout << " buy=" << event.buy_order_id.value()
+                      << " sell=" << event.sell_order_id.value();
+        }
+        std::cout << '\n';
+    }
+
+    last_seen_seq_num = events.back().seq_num;
+}
+
 }  // namespace
 
 int main() {
     MatchingEngine engine;
+    std::uint64_t last_seen_seq_num = 0;
 
     std::cout << "Matching Engine Demo\n";
 
     print_separator();
     std::cout << "Action: submit BUY #1001  qty=5  px=101.0000\n";
     print_submit_outcome(engine.submit({1001, Side::BUY, price_to_ticks(101.0), 5}));
+    print_events_since(engine, last_seen_seq_num);
     print_book(engine, 5);
 
     print_separator();
     std::cout << "Action: submit BUY #1002  qty=4  px=100.5000\n";
     print_submit_outcome(engine.submit({1002, Side::BUY, price_to_ticks(100.5), 4}));
+    print_events_since(engine, last_seen_seq_num);
     print_book(engine, 5);
 
     print_separator();
     std::cout << "Action: submit SELL #2001 qty=3  px=102.0000\n";
     print_submit_outcome(engine.submit({2001, Side::SELL, price_to_ticks(102.0), 3}));
+    print_events_since(engine, last_seen_seq_num);
     print_book(engine, 5);
 
     print_separator();
     std::cout << "Action: submit SELL #2002 qty=6  px=103.0000\n";
     print_submit_outcome(engine.submit({2002, Side::SELL, price_to_ticks(103.0), 6}));
+    print_events_since(engine, last_seen_seq_num);
     print_book(engine, 5);
 
     print_separator();
     std::cout << "Action: replace #1002 -> px=101.5000 qty=4\n";
     print_submit_outcome(engine.replace(1002, price_to_ticks(101.5), 4));
+    print_events_since(engine, last_seen_seq_num);
     print_book(engine, 5);
 
     print_separator();
     std::cout << "Action: replace #1001 -> px=103.0000 qty=7 (crossing)\n";
     print_submit_outcome(engine.replace(1001, price_to_ticks(103.0), 7));
+    print_events_since(engine, last_seen_seq_num);
     print_book(engine, 5);
 
     print_separator();
     std::cout << "Action: submit MARKET SELL #3001 qty=6\n";
     print_submit_outcome(
         engine.submit({3001, Side::SELL, 0, 6, TimeInForce::IOC, OrderType::MARKET}));
+    print_events_since(engine, last_seen_seq_num);
     print_book(engine, 5);
 
     print_separator();
     std::cout << "Action: cancel #2002\n";
     std::cout << "Result: " << (engine.cancel(2002) ? "CANCELED" : "NOT_FOUND") << '\n';
+    print_events_since(engine, last_seen_seq_num);
     print_book(engine, 5);
 
     print_separator();
     std::cout << "Action: submit MARKET BUY #3002 qty=1 (no liquidity)\n";
     print_submit_outcome(
         engine.submit({3002, Side::BUY, 0, 1, TimeInForce::IOC, OrderType::MARKET}));
+    print_events_since(engine, last_seen_seq_num);
     print_book(engine, 5);
 
     print_separator();

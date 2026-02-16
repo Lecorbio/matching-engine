@@ -24,11 +24,12 @@ Core behavior:
 - Emit trades with price, quantity, and the involved order ids.
 - Market data supports:
   - top-of-book snapshots with aggregated best-level quantity,
-  - depth snapshots for top N price levels per side.
+  - depth snapshots for top N price levels per side,
+  - incremental sequenced events (`ADD`, `TRADE`, `CANCEL`, `REPLACE`).
 
 Out of scope for MVP (future work):
 - Benchmarking harness to measure throughput/latency.
-- Incremental event feed with deterministic sequence numbers.
+- Deterministic replay from event logs/CSV data.
 
 Non-goals:
 - Persistent storage, networking, or concurrency; keep it single-threaded and in-memory.
