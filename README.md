@@ -28,6 +28,15 @@ cmake --build build
 ./build/matching_engine_app
 ```
 
+Replay mode:
+```bash
+./build/matching_engine_app replay tests/data/replay_basic.csv
+./build/matching_engine_app replay tests/data/replay_basic.csv /tmp/trades.csv
+```
+
+Replay mode parses CSV rows, sorts them deterministically by `(ts_ns, seq, original_file_order)`,
+replays them through the engine APIs, and prints a summary.
+
 Time-in-force behavior:
 - `GTC`: leftover quantity rests in the book.
 - `IOC`: leftover quantity is canceled immediately.
@@ -45,9 +54,17 @@ Market data API behavior:
 - `depth(n_levels)`: returns top `n_levels` aggregated levels for bids and asks.
 - `event_log()` and `events_since(seq_num)`: provide sequenced incremental events (`ADD`, `TRADE`, `CANCEL`, `REPLACE`).
 
+Replay CSV schema:
+- Header must be exactly:
+  - `ts_ns,seq,action,order_id,side,type,price,qty,tif,new_price,new_qty,notes`
+- `action=NEW`: requires `side`, `type`, `qty`; `price` required for `LIMIT`, blank for `MARKET`.
+- `action=CANCEL`: requires `order_id`.
+- `action=REPLACE`: requires `order_id`, `new_price`, `new_qty`.
+- Parsing errors include line numbers and stop replay.
+
 ## Next steps
 - Add basic performance benchmarking.
-- Add deterministic replay from CSV event streams.
+- Add strategy execution metrics (for example implementation shortfall / slippage).
 
 ## Run tests
 ```bash

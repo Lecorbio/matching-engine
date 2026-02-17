@@ -1,0 +1,2 @@
+ts_ns,seq,action,order_id,side,type,price,qty,tif,new_price,new_qty,notes
+100,1,NEW,10,BID,LIMIT,100.0000,1,GTC,,,invalid side

@@ -1,10 +1,12 @@
 #include <algorithm>
 #include <iomanip>
 #include <iostream>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <vector>
 
+#include "csv_replay.h"
 #include "matching_engine.h"
 
 namespace {
@@ -158,9 +160,45 @@ void print_events_since(const MatchingEngine& engine, std::uint64_t& last_seen_s
     last_seen_seq_num = events.back().seq_num;
 }
 
-}  // namespace
+void print_usage(const char* program_name) {
+    std::cout << "Usage:\n";
+    std::cout << "  " << program_name << "\n";
+    std::cout << "  " << program_name << " replay <input.csv> [trades_out.csv]\n";
+}
 
-int main() {
+int run_replay_mode(const std::string& input_csv,
+                    const std::optional<std::string>& trades_out_csv) {
+    MatchingEngine engine;
+    ReplayResult replay;
+    std::string error;
+
+    if (!replay_csv_file(input_csv, engine, replay, error)) {
+        std::cerr << "Replay failed: " << error << '\n';
+        return 1;
+    }
+
+    std::cout << "Replay complete\n";
+    std::cout << "Rows processed: " << replay.stats.rows_processed << '\n';
+    std::cout << "Accepted actions: " << replay.stats.accepted_actions << '\n';
+    std::cout << "Rejected actions: " << replay.stats.rejected_actions << '\n';
+    std::cout << "Cancel success: " << replay.stats.cancel_success << '\n';
+    std::cout << "Cancel not found: " << replay.stats.cancel_not_found << '\n';
+    std::cout << "Trades generated: " << replay.stats.trades_generated << '\n';
+    std::cout << "Final event seq: " << engine.last_seq_num() << '\n';
+    print_book(engine, 5);
+
+    if (trades_out_csv.has_value()) {
+        if (!write_replay_trades_csv(trades_out_csv.value(), replay.trades, error)) {
+            std::cerr << "Failed to write trades CSV: " << error << '\n';
+            return 1;
+        }
+        std::cout << "Wrote trades CSV: " << trades_out_csv.value() << '\n';
+    }
+
+    return 0;
+}
+
+int run_demo_mode() {
     MatchingEngine engine;
     std::uint64_t last_seen_seq_num = 0;
 
@@ -225,4 +263,29 @@ int main() {
     print_separator();
     std::cout << "Demo complete.\n";
     return 0;
+}
+
+}  // namespace
+
+int main(int argc, char** argv) {
+    if (argc == 1) {
+        return run_demo_mode();
+    }
+
+    const std::string mode = argv[1];
+    if (mode == "replay") {
+        if (argc < 3 || argc > 4) {
+            print_usage(argv[0]);
+            return 2;
+        }
+
+        std::optional<std::string> trades_output;
+        if (argc == 4) {
+            trades_output = argv[3];
+        }
+        return run_replay_mode(argv[2], trades_output);
+    }
+
+    print_usage(argv[0]);
+    return 2;
 }

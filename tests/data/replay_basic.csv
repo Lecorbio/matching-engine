@@ -1,0 +1,10 @@
+ts_ns,seq,action,order_id,side,type,price,qty,tif,new_price,new_qty,notes
+100,2,NEW,1,BUY,LIMIT,100.0000,5,GTC,,,crosses earlier seq
+100,1,NEW,2,SELL,LIMIT,100.0000,2,GTC,,,
+105,1,NEW,3,SELL,LIMIT,101.0000,4,GTC,,,
+106,1,REPLACE,1,,,,,,101.0000,3,price up replace should cross
+107,1,NEW,4,BUY,LIMIT,99.0000,5,GTC,,,
+108,1,CANCEL,4,,,,,,,,cancel resting bid
+109,1,NEW,6,BUY,MARKET,,1,IOC,,,consume remaining ask
+110,1,NEW,7,BUY,MARKET,,1,IOC,,,reject no liquidity
+111,1,REPLACE,999,,,,,,102.0000,1,reject unknown order
