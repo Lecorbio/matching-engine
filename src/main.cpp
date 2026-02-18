@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "csv_replay.h"
+#include "execution_backtest.h"
 #include "matching_engine.h"
 
 namespace {
@@ -60,6 +61,43 @@ const char* reject_reason_to_cstr(RejectReason reason) {
             return "ORDER_NOT_FOUND";
     }
     return "UNKNOWN";
+}
+
+const char* side_to_cstr(Side side) {
+    return side == Side::BUY ? "BUY" : "SELL";
+}
+
+bool parse_positive_int(const std::string& text, int& out_value) {
+    std::istringstream iss(text);
+    int parsed = 0;
+    iss >> parsed;
+    if (iss.fail()) {
+        return false;
+    }
+
+    char trailing = '\0';
+    if (iss >> trailing) {
+        return false;
+    }
+
+    if (parsed <= 0) {
+        return false;
+    }
+
+    out_value = parsed;
+    return true;
+}
+
+bool parse_side(const std::string& text, Side& out_side) {
+    if (text == "BUY") {
+        out_side = Side::BUY;
+        return true;
+    }
+    if (text == "SELL") {
+        out_side = Side::SELL;
+        return true;
+    }
+    return false;
 }
 
 void print_separator() {
@@ -164,6 +202,7 @@ void print_usage(const char* program_name) {
     std::cout << "Usage:\n";
     std::cout << "  " << program_name << "\n";
     std::cout << "  " << program_name << " replay <input.csv> [trades_out.csv]\n";
+    std::cout << "  " << program_name << " backtest_twap <input.csv> <BUY|SELL> <qty> <slices>\n";
 }
 
 int run_replay_mode(const std::string& input_csv,
@@ -193,6 +232,93 @@ int run_replay_mode(const std::string& input_csv,
             return 1;
         }
         std::cout << "Wrote trades CSV: " << trades_out_csv.value() << '\n';
+    }
+
+    return 0;
+}
+
+int run_backtest_twap_mode(const std::string& input_csv,
+                           Side side,
+                           int quantity,
+                           int slices) {
+    TwapConfig config;
+    config.side = side;
+    config.target_quantity = quantity;
+    config.slices = static_cast<std::size_t>(slices);
+
+    TwapBacktestResult backtest;
+    std::string error;
+    if (!run_twap_backtest_csv(input_csv, config, backtest, error)) {
+        std::cerr << "TWAP backtest failed: " << error << '\n';
+        return 1;
+    }
+
+    std::cout << "TWAP backtest complete\n";
+    std::cout << "Config: side=" << side_to_cstr(side)
+              << " qty=" << quantity
+              << " slices=" << slices << '\n';
+    std::cout << "Rows processed: " << backtest.replay_stats.rows_processed << '\n';
+    std::cout << "Accepted replay actions: " << backtest.replay_stats.accepted_actions << '\n';
+    std::cout << "Rejected replay actions: " << backtest.replay_stats.rejected_actions << '\n';
+    std::cout << "Replay market trades: " << backtest.replay_stats.trades_generated << '\n';
+    std::cout << "Replay market volume: " << backtest.tca.market_traded_quantity << '\n';
+
+    std::cout << "Filled quantity: " << backtest.tca.filled_quantity
+              << " / " << backtest.tca.target_quantity
+              << " (fill_rate=" << std::fixed << std::setprecision(4) << backtest.tca.fill_rate
+              << ")\n";
+
+    if (backtest.tca.average_fill_price_ticks.has_value()) {
+        std::cout << "Average fill price: " << fmt_price(backtest.tca.average_fill_price_ticks.value())
+                  << '\n';
+    } else {
+        std::cout << "Average fill price: --\n";
+    }
+
+    if (backtest.tca.arrival_benchmark_price_ticks.has_value()) {
+        std::cout << "Arrival benchmark (" << backtest.tca.arrival_benchmark_name << "): "
+                  << fmt_price(backtest.tca.arrival_benchmark_price_ticks.value()) << '\n';
+    } else {
+        std::cout << "Arrival benchmark: --\n";
+    }
+
+    if (backtest.tca.implementation_shortfall_bps.has_value()) {
+        std::cout << "Implementation shortfall (bps): " << std::fixed << std::setprecision(4)
+                  << backtest.tca.implementation_shortfall_bps.value() << '\n';
+    } else {
+        std::cout << "Implementation shortfall (bps): --\n";
+    }
+
+    std::cout << "Participation rate: " << std::fixed << std::setprecision(4)
+              << backtest.tca.participation_rate << '\n';
+
+    std::cout << "Child orders (" << backtest.child_orders.size() << "):\n";
+    std::cout << "  " << std::left
+              << std::setw(6) << "#"
+              << std::setw(12) << "ORDER_ID"
+              << std::setw(12) << "SCHED_TS"
+              << std::setw(6) << "REQ"
+              << std::setw(6) << "FILL"
+              << std::setw(10) << "STATUS"
+              << "DETAIL\n";
+
+    for (const auto& child : backtest.child_orders) {
+        std::cout << "  " << std::left
+                  << std::setw(6) << child.child_index
+                  << std::setw(12) << child.order_id
+                  << std::setw(12) << child.scheduled_ts_ns
+                  << std::setw(6) << child.requested_quantity
+                  << std::setw(6) << child.filled_quantity
+                  << std::setw(10) << (child.accepted ? "ACCEPTED" : "REJECTED");
+
+        if (!child.accepted) {
+            std::cout << reject_reason_to_cstr(child.reject_reason);
+        } else if (child.average_fill_price_ticks.has_value()) {
+            std::cout << "avg_px=" << fmt_price(child.average_fill_price_ticks.value());
+        } else {
+            std::cout << "no_fill";
+        }
+        std::cout << '\n';
     }
 
     return 0;
@@ -284,6 +410,33 @@ int main(int argc, char** argv) {
             trades_output = argv[3];
         }
         return run_replay_mode(argv[2], trades_output);
+    }
+
+    if (mode == "backtest_twap") {
+        if (argc != 6) {
+            print_usage(argv[0]);
+            return 2;
+        }
+
+        Side side = Side::BUY;
+        if (!parse_side(argv[3], side)) {
+            std::cerr << "Invalid side '" << argv[3] << "' (expected BUY or SELL)\n";
+            return 2;
+        }
+
+        int quantity = 0;
+        if (!parse_positive_int(argv[4], quantity)) {
+            std::cerr << "Invalid qty '" << argv[4] << "' (expected positive integer)\n";
+            return 2;
+        }
+
+        int slices = 0;
+        if (!parse_positive_int(argv[5], slices)) {
+            std::cerr << "Invalid slices '" << argv[5] << "' (expected positive integer)\n";
+            return 2;
+        }
+
+        return run_backtest_twap_mode(argv[2], side, quantity, slices);
     }
 
     print_usage(argv[0]);

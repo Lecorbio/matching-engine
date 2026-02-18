@@ -37,6 +37,18 @@ Replay mode:
 Replay mode parses CSV rows, sorts them deterministically by `(ts_ns, seq, original_file_order)`,
 replays them through the engine APIs, and prints a summary.
 
+TWAP backtest mode (Piece 1):
+```bash
+./build/matching_engine_app backtest_twap tests/data/backtest_twap_basic.csv BUY 6 3
+```
+
+Backtest mode replays the market CSV, injects market child orders on a TWAP schedule,
+and prints execution metrics:
+- fill quantity/rate,
+- arrival benchmark and average fill price,
+- implementation shortfall (bps),
+- participation rate against replay market volume.
+
 Time-in-force behavior:
 - `GTC`: leftover quantity rests in the book.
 - `IOC`: leftover quantity is canceled immediately.
@@ -64,7 +76,7 @@ Replay CSV schema:
 
 ## Next steps
 - Add basic performance benchmarking.
-- Add strategy execution metrics (for example implementation shortfall / slippage).
+- Extend execution backtesting beyond TWAP (for example VWAP/POV and richer slippage analysis).
 
 ## Run tests
 ```bash
