@@ -42,12 +42,26 @@ TWAP backtest mode (Piece 1):
 ./build/matching_engine_app backtest_twap tests/data/backtest_twap_basic.csv BUY 6 3
 ```
 
-Backtest mode replays the market CSV, injects market child orders on a TWAP schedule,
-and prints execution metrics:
+VWAP backtest mode:
+```bash
+./build/matching_engine_app backtest_vwap tests/data/backtest_twap_basic.csv BUY 6 3
+```
+
+Compare TWAP vs VWAP:
+```bash
+./build/matching_engine_app backtest_compare tests/data/backtest_twap_basic.csv BUY 6 3
+```
+
+Backtest modes replay the market CSV, inject market child orders on either a TWAP or VWAP schedule,
+and print execution metrics:
 - fill quantity/rate,
 - arrival benchmark and average fill price,
 - implementation shortfall (bps),
 - participation rate against replay market volume.
+
+VWAP sizing is proportional to replayed market trade volume per time bucket. If replayed market volume
+is zero, VWAP falls back to equal TWAP sizing. Time buckets with zero allocated VWAP quantity are shown
+as `SKIPPED` child slices in the output.
 
 Time-in-force behavior:
 - `GTC`: leftover quantity rests in the book.
@@ -76,7 +90,7 @@ Replay CSV schema:
 
 ## Next steps
 - Add basic performance benchmarking.
-- Extend execution backtesting beyond TWAP (for example VWAP/POV and richer slippage analysis).
+- Extend execution backtesting beyond TWAP/VWAP (for example POV and richer slippage analysis).
 
 ## Run tests
 ```bash

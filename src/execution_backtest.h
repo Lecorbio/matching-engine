@@ -8,18 +8,25 @@
 
 #include "csv_replay.h"
 
-struct TwapConfig {
+enum class ExecutionStrategy {
+    TWAP,
+    VWAP
+};
+
+struct BacktestConfig {
     Side side = Side::BUY;
     int target_quantity = 0;
     std::size_t slices = 1;
     int first_child_order_id = 1000000000;
+    ExecutionStrategy strategy = ExecutionStrategy::TWAP;
 };
 
-struct TwapChildExecution {
+struct ChildExecution {
     int child_index = 0;
     int order_id = 0;
     std::uint64_t scheduled_ts_ns = 0;
     int requested_quantity = 0;
+    bool skipped = false;
     bool accepted = false;
     RejectReason reject_reason = RejectReason::NONE;
     int filled_quantity = 0;
@@ -41,14 +48,28 @@ struct TcaSummary {
     double participation_rate = 0.0;
 };
 
-struct TwapBacktestResult {
+struct BacktestResult {
     ReplayStats replay_stats;
     std::vector<ReplayTradeRecord> market_trades;
-    std::vector<TwapChildExecution> child_orders;
+    std::vector<ChildExecution> child_orders;
     TcaSummary tca;
 };
+
+using TwapConfig = BacktestConfig;
+using TwapChildExecution = ChildExecution;
+using TwapBacktestResult = BacktestResult;
+
+bool run_execution_backtest_csv(const std::string& csv_path,
+                                const BacktestConfig& config,
+                                BacktestResult& out_result,
+                                std::string& out_error);
 
 bool run_twap_backtest_csv(const std::string& csv_path,
                            const TwapConfig& config,
                            TwapBacktestResult& out_result,
+                           std::string& out_error);
+
+bool run_vwap_backtest_csv(const std::string& csv_path,
+                           const BacktestConfig& config,
+                           BacktestResult& out_result,
                            std::string& out_error);

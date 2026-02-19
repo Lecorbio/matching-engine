@@ -1,0 +1,8 @@
+ts_ns,seq,action,order_id,side,type,price,qty,tif,new_price,new_qty,notes
+100,1,NEW,100,SELL,LIMIT,100.0000,50,GTC,,,cheap ask liquidity for early child slices
+100,2,NEW,200,BUY,LIMIT,99.0000,20,GTC,,,bid liquidity used only for profile volume
+100,3,NEW,201,SELL,LIMIT,99.0000,3,GTC,,,profile bucket0 trade qty=3
+115,1,NEW,202,SELL,LIMIT,99.0000,2,GTC,,,profile bucket1 trade qty=2
+120,1,CANCEL,100,,,,,,,,remove cheap ask before final slice
+120,2,NEW,101,SELL,LIMIT,101.0000,50,GTC,,,expensive ask for late child slice
+130,1,NEW,203,SELL,LIMIT,99.0000,1,GTC,,,profile bucket2 trade qty=1

@@ -67,6 +67,16 @@ const char* side_to_cstr(Side side) {
     return side == Side::BUY ? "BUY" : "SELL";
 }
 
+const char* strategy_to_cstr(ExecutionStrategy strategy) {
+    switch (strategy) {
+        case ExecutionStrategy::TWAP:
+            return "TWAP";
+        case ExecutionStrategy::VWAP:
+            return "VWAP";
+    }
+    return "UNKNOWN";
+}
+
 bool parse_positive_int(const std::string& text, int& out_value) {
     std::istringstream iss(text);
     int parsed = 0;
@@ -203,6 +213,8 @@ void print_usage(const char* program_name) {
     std::cout << "  " << program_name << "\n";
     std::cout << "  " << program_name << " replay <input.csv> [trades_out.csv]\n";
     std::cout << "  " << program_name << " backtest_twap <input.csv> <BUY|SELL> <qty> <slices>\n";
+    std::cout << "  " << program_name << " backtest_vwap <input.csv> <BUY|SELL> <qty> <slices>\n";
+    std::cout << "  " << program_name << " backtest_compare <input.csv> <BUY|SELL> <qty> <slices>\n";
 }
 
 int run_replay_mode(const std::string& input_csv,
@@ -237,23 +249,13 @@ int run_replay_mode(const std::string& input_csv,
     return 0;
 }
 
-int run_backtest_twap_mode(const std::string& input_csv,
+void print_backtest_report(const BacktestResult& backtest,
+                           ExecutionStrategy strategy,
                            Side side,
                            int quantity,
-                           int slices) {
-    TwapConfig config;
-    config.side = side;
-    config.target_quantity = quantity;
-    config.slices = static_cast<std::size_t>(slices);
-
-    TwapBacktestResult backtest;
-    std::string error;
-    if (!run_twap_backtest_csv(input_csv, config, backtest, error)) {
-        std::cerr << "TWAP backtest failed: " << error << '\n';
-        return 1;
-    }
-
-    std::cout << "TWAP backtest complete\n";
+                           int slices,
+                           bool include_children) {
+    std::cout << strategy_to_cstr(strategy) << " backtest complete\n";
     std::cout << "Config: side=" << side_to_cstr(side)
               << " qty=" << quantity
               << " slices=" << slices << '\n';
@@ -292,6 +294,10 @@ int run_backtest_twap_mode(const std::string& input_csv,
     std::cout << "Participation rate: " << std::fixed << std::setprecision(4)
               << backtest.tca.participation_rate << '\n';
 
+    if (!include_children) {
+        return;
+    }
+
     std::cout << "Child orders (" << backtest.child_orders.size() << "):\n";
     std::cout << "  " << std::left
               << std::setw(6) << "#"
@@ -303,15 +309,22 @@ int run_backtest_twap_mode(const std::string& input_csv,
               << "DETAIL\n";
 
     for (const auto& child : backtest.child_orders) {
+        std::string status = "SKIPPED";
+        if (!child.skipped) {
+            status = child.accepted ? "ACCEPTED" : "REJECTED";
+        }
+
         std::cout << "  " << std::left
                   << std::setw(6) << child.child_index
                   << std::setw(12) << child.order_id
                   << std::setw(12) << child.scheduled_ts_ns
                   << std::setw(6) << child.requested_quantity
                   << std::setw(6) << child.filled_quantity
-                  << std::setw(10) << (child.accepted ? "ACCEPTED" : "REJECTED");
+                  << std::setw(10) << status;
 
-        if (!child.accepted) {
+        if (child.skipped) {
+            std::cout << "zero_qty";
+        } else if (!child.accepted) {
             std::cout << reject_reason_to_cstr(child.reject_reason);
         } else if (child.average_fill_price_ticks.has_value()) {
             std::cout << "avg_px=" << fmt_price(child.average_fill_price_ticks.value());
@@ -319,6 +332,121 @@ int run_backtest_twap_mode(const std::string& input_csv,
             std::cout << "no_fill";
         }
         std::cout << '\n';
+    }
+}
+
+bool run_backtest_for_strategy(const std::string& input_csv,
+                               const BacktestConfig& config,
+                               BacktestResult& out_result,
+                               std::string& out_error) {
+    if (config.strategy == ExecutionStrategy::TWAP) {
+        return run_twap_backtest_csv(input_csv, config, out_result, out_error);
+    }
+    return run_vwap_backtest_csv(input_csv, config, out_result, out_error);
+}
+
+int run_backtest_mode(const std::string& input_csv,
+                      Side side,
+                      int quantity,
+                      int slices,
+                      ExecutionStrategy strategy) {
+    BacktestConfig config;
+    config.side = side;
+    config.target_quantity = quantity;
+    config.slices = static_cast<std::size_t>(slices);
+    config.strategy = strategy;
+
+    BacktestResult backtest;
+    std::string error;
+    if (!run_backtest_for_strategy(input_csv, config, backtest, error)) {
+        std::cerr << strategy_to_cstr(strategy) << " backtest failed: " << error << '\n';
+        return 1;
+    }
+
+    print_backtest_report(backtest, strategy, side, quantity, slices, true);
+    return 0;
+}
+
+int run_backtest_compare_mode(const std::string& input_csv,
+                              Side side,
+                              int quantity,
+                              int slices) {
+    BacktestConfig twap_config;
+    twap_config.side = side;
+    twap_config.target_quantity = quantity;
+    twap_config.slices = static_cast<std::size_t>(slices);
+    twap_config.strategy = ExecutionStrategy::TWAP;
+
+    BacktestConfig vwap_config = twap_config;
+    vwap_config.strategy = ExecutionStrategy::VWAP;
+
+    BacktestResult twap_result;
+    BacktestResult vwap_result;
+    std::string error;
+
+    if (!run_backtest_for_strategy(input_csv, twap_config, twap_result, error)) {
+        std::cerr << "TWAP backtest failed: " << error << '\n';
+        return 1;
+    }
+    if (!run_backtest_for_strategy(input_csv, vwap_config, vwap_result, error)) {
+        std::cerr << "VWAP backtest failed: " << error << '\n';
+        return 1;
+    }
+
+    auto fmt_optional_bps = [](const std::optional<double>& value) {
+        if (!value.has_value()) {
+            return std::string("--");
+        }
+        std::ostringstream oss;
+        oss << std::fixed << std::setprecision(4) << value.value();
+        return oss.str();
+    };
+
+    auto fmt_optional_price = [](const std::optional<PriceTicks>& value) {
+        if (!value.has_value()) {
+            return std::string("--");
+        }
+        return fmt_price(value.value());
+    };
+
+    auto fmt_fixed = [](double value) {
+        std::ostringstream oss;
+        oss << std::fixed << std::setprecision(4) << value;
+        return oss.str();
+    };
+
+    std::cout << "Backtest compare complete\n";
+    std::cout << "Config: side=" << side_to_cstr(side)
+              << " qty=" << quantity
+              << " slices=" << slices << '\n';
+    std::cout << "  " << std::left
+              << std::setw(10) << "STRATEGY"
+              << std::setw(12) << "FILL_RATE"
+              << std::setw(12) << "AVG_PX"
+              << std::setw(14) << "SHORTFALL_BPS"
+              << "PARTICIPATION\n";
+
+    std::cout << "  " << std::left
+              << std::setw(10) << "TWAP"
+              << std::setw(12) << fmt_fixed(twap_result.tca.fill_rate)
+              << std::setw(12) << fmt_optional_price(twap_result.tca.average_fill_price_ticks)
+              << std::setw(14) << fmt_optional_bps(twap_result.tca.implementation_shortfall_bps)
+              << fmt_fixed(twap_result.tca.participation_rate) << '\n';
+
+    std::cout << "  " << std::left
+              << std::setw(10) << "VWAP"
+              << std::setw(12) << fmt_fixed(vwap_result.tca.fill_rate)
+              << std::setw(12) << fmt_optional_price(vwap_result.tca.average_fill_price_ticks)
+              << std::setw(14) << fmt_optional_bps(vwap_result.tca.implementation_shortfall_bps)
+              << fmt_fixed(vwap_result.tca.participation_rate) << '\n';
+
+    if (twap_result.tca.implementation_shortfall_bps.has_value() &&
+        vwap_result.tca.implementation_shortfall_bps.has_value()) {
+        const double delta =
+            twap_result.tca.implementation_shortfall_bps.value() -
+            vwap_result.tca.implementation_shortfall_bps.value();
+        std::cout << "Shortfall delta (TWAP - VWAP bps): " << std::fixed << std::setprecision(4)
+                  << delta << '\n';
     }
 
     return 0;
@@ -412,7 +540,7 @@ int main(int argc, char** argv) {
         return run_replay_mode(argv[2], trades_output);
     }
 
-    if (mode == "backtest_twap") {
+    if (mode == "backtest_twap" || mode == "backtest_vwap" || mode == "backtest_compare") {
         if (argc != 6) {
             print_usage(argv[0]);
             return 2;
@@ -436,7 +564,13 @@ int main(int argc, char** argv) {
             return 2;
         }
 
-        return run_backtest_twap_mode(argv[2], side, quantity, slices);
+        if (mode == "backtest_twap") {
+            return run_backtest_mode(argv[2], side, quantity, slices, ExecutionStrategy::TWAP);
+        }
+        if (mode == "backtest_vwap") {
+            return run_backtest_mode(argv[2], side, quantity, slices, ExecutionStrategy::VWAP);
+        }
+        return run_backtest_compare_mode(argv[2], side, quantity, slices);
     }
 
     print_usage(argv[0]);
