@@ -81,6 +81,33 @@ VWAP sizing is proportional to replayed market trade volume per time bucket. If 
 is zero, VWAP falls back to equal TWAP sizing. Time buckets with zero allocated VWAP quantity are shown
 as `SKIPPED` child slices in the output.
 
+## Results Snapshot
+Reproducible from:
+```bash
+./build/matching_engine_app backtest_batch tests/data/backtest_batch_requests.csv
+```
+
+Using the current `tests/data/backtest_batch_requests.csv` scenarios:
+- Mean shortfall:
+  - `TWAP`: `17.6200` bps
+  - `VWAP`: `17.1450` bps
+  - `TWAP - VWAP`: `+0.4750` bps (VWAP lower on average in this sample)
+- Tail shortfall (`p95`):
+  - `TWAP`: `27.4750` bps
+  - `VWAP`: `19.7145` bps
+- Fill rate:
+  - `TWAP`: `1.0000`
+  - `VWAP`: `1.0000`
+
+Example regime-dependent result from `results/backtest_runs.csv`:
+- `backtest_vwap_profile.csv`: `TWAP=28.57` bps vs `VWAP=14.29` bps
+- `backtest_twap_basic.csv`: `TWAP=6.67` bps vs `VWAP=20.00` bps
+
+This demonstrates the intended research workflow: compare execution policies by scenario, not just by global average.
+
+## Limitations
+- VWAP sizing currently uses replayed realized market volume (look-ahead), so it is for offline benchmarking and strategy comparison, not live execution deployment as-is.
+
 Time-in-force behavior:
 - `GTC`: leftover quantity rests in the book.
 - `IOC`: leftover quantity is canceled immediately.
@@ -105,10 +132,6 @@ Replay CSV schema:
 - `action=CANCEL`: requires `order_id`.
 - `action=REPLACE`: requires `order_id`, `new_price`, `new_qty`.
 - Parsing errors include line numbers and stop replay.
-
-## Next steps
-- Add basic performance benchmarking.
-- Extend execution backtesting beyond TWAP/VWAP (for example POV and richer slippage analysis).
 
 ## Run tests
 ```bash

@@ -1,35 +1,33 @@
 # Mini Exchange Matching Engine
 
-Goals:
-- Implement a simple limit order book with price-time priority (best price first, FIFO at each price).
-- Support limit/market orders, partial fills, cancel/replace by order id, IOC/GTC time-in-force, and generate trade records on matches.
-- Keep code minimal, readable, and beginner-friendly C++.
+This project explores how a deterministic C++ limit order book behaves under replayed market flow,
+and how basic execution schedules (TWAP/VWAP) perform in offline backtests.
 
-Core behavior:
-- Separate bids/asks; maintain price levels with queues to preserve order arrival.
-- Matching: an incoming order executes against the best opposite prices until filled or no match; leftover rests in book.
-- Partial fills allowed; track remaining quantity per order.
-- Cancel: remove a resting order by id and return whether cancel succeeded.
-- Replace: update a resting order by id with explicit queue-priority rules:
+Implemented scope:
+- Single-threaded in-memory limit order book with price-time priority.
+- Order handling: `LIMIT`/`MARKET`, `GTC`/`IOC`, partial fills, cancel, replace, and explicit reject reasons.
+- Queue-priority replace rules:
   - same price + quantity decrease keeps priority,
   - price change or quantity increase loses priority.
-- Submit API returns `SubmitResult { accepted, reject_reason, trades }`.
-- Safety checks reject duplicate ids and non-positive price/quantity with explicit reject reasons.
-- Time-in-force supports:
-  - `GTC` (rest leftover quantity),
-  - `IOC` (cancel leftover quantity immediately).
-- Order type supports:
-  - `LIMIT` (price-bounded crossing),
-  - `MARKET` (immediate crossing at best available prices, leftover canceled).
-- Emit trades with price, quantity, and the involved order ids.
-- Market data supports:
-  - top-of-book snapshots with aggregated best-level quantity,
-  - depth snapshots for top N price levels per side,
-  - incremental sequenced events (`ADD`, `TRADE`, `CANCEL`, `REPLACE`).
+- Market data APIs: top-of-book, depth snapshots, and incremental sequenced events (`ADD`, `TRADE`, `CANCEL`, `REPLACE`).
+- Deterministic CSV replay (sorted by `ts_ns`, `seq`, and original row order).
+- Execution backtests:
+  - `backtest_twap`
+  - `backtest_vwap`
+  - `backtest_compare` (TWAP vs VWAP)
+- Batch experiment runner (`backtest_batch`) that reads request CSVs and writes:
+  - per-run outputs (`results/backtest_runs.csv`)
+  - aggregated strategy summaries (`results/backtest_summary.csv`)
+- TCA metrics include fill rate, average fill price, arrival benchmark, implementation shortfall (bps), and participation rate.
+- GitHub Actions CI runs configure/build/test on push and pull request.
 
-Out of scope for MVP (future work):
-- Benchmarking harness to measure throughput/latency.
-- Deterministic replay from event logs/CSV data.
+Design goals:
+- Keep logic readable and beginner-friendly.
+- Keep outputs deterministic and reproducible.
+- Make strategy comparisons easy to run from CLI.
 
-Non-goals:
-- Persistent storage, networking, or concurrency; keep it single-threaded and in-memory.
+Current limitations:
+- No networking, persistence layer, or concurrency model.
+- No production/live execution adapter.
+- VWAP sizing uses realized replay volume (look-ahead), so it is intended for offline benchmarking only.
+- Performance benchmarking is not yet a primary module.
