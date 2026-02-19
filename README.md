@@ -52,6 +52,24 @@ Compare TWAP vs VWAP:
 ./build/matching_engine_app backtest_compare tests/data/backtest_twap_basic.csv BUY 6 3
 ```
 
+Batch experiment mode:
+```bash
+./build/matching_engine_app backtest_batch tests/data/backtest_batch_requests.csv
+./build/matching_engine_app backtest_batch tests/data/backtest_batch_requests.csv /tmp/backtest_runs.csv /tmp/backtest_summary.csv
+```
+
+Batch request CSV schema:
+- Header: `dataset,side,qty,slices,strategy`
+- `dataset`: replay CSV path (for example `tests/data/backtest_vwap_profile.csv`)
+- `side`: `BUY` or `SELL`
+- `qty`: positive integer parent quantity
+- `slices`: positive integer number of schedule buckets
+- `strategy`: `TWAP` or `VWAP`
+
+Default batch outputs:
+- `results/backtest_runs.csv`: per-run metrics and status.
+- `results/backtest_summary.csv`: aggregated strategy stats (`mean/p50/p95`) and paired `TWAP-VWAP` deltas.
+
 Backtest modes replay the market CSV, inject market child orders on either a TWAP or VWAP schedule,
 and print execution metrics:
 - fill quantity/rate,

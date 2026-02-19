@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 
+#include "backtest_batch.h"
 #include "csv_replay.h"
 #include "execution_backtest.h"
 #include "matching_engine.h"
@@ -215,6 +216,8 @@ void print_usage(const char* program_name) {
     std::cout << "  " << program_name << " backtest_twap <input.csv> <BUY|SELL> <qty> <slices>\n";
     std::cout << "  " << program_name << " backtest_vwap <input.csv> <BUY|SELL> <qty> <slices>\n";
     std::cout << "  " << program_name << " backtest_compare <input.csv> <BUY|SELL> <qty> <slices>\n";
+    std::cout << "  " << program_name
+              << " backtest_batch <requests.csv> [runs_out.csv] [summary_out.csv]\n";
 }
 
 int run_replay_mode(const std::string& input_csv,
@@ -452,6 +455,30 @@ int run_backtest_compare_mode(const std::string& input_csv,
     return 0;
 }
 
+int run_backtest_batch_mode(const std::string& requests_csv,
+                            const std::optional<std::string>& runs_out_csv,
+                            const std::optional<std::string>& summary_out_csv) {
+    const std::string runs_path = runs_out_csv.has_value() ? runs_out_csv.value()
+                                                           : "results/backtest_runs.csv";
+    const std::string summary_path = summary_out_csv.has_value() ? summary_out_csv.value()
+                                                                 : "results/backtest_summary.csv";
+
+    BatchRunStats stats;
+    std::string error;
+    if (!run_backtest_batch_csv(requests_csv, runs_path, summary_path, stats, error)) {
+        std::cerr << "Batch backtest failed: " << error << '\n';
+        return 1;
+    }
+
+    std::cout << "Batch backtest complete\n";
+    std::cout << "Requests: " << stats.requests << '\n';
+    std::cout << "Successful: " << stats.successful << '\n';
+    std::cout << "Failed: " << stats.failed << '\n';
+    std::cout << "Runs CSV: " << runs_path << '\n';
+    std::cout << "Summary CSV: " << summary_path << '\n';
+    return 0;
+}
+
 int run_demo_mode() {
     MatchingEngine engine;
     std::uint64_t last_seen_seq_num = 0;
@@ -571,6 +598,24 @@ int main(int argc, char** argv) {
             return run_backtest_mode(argv[2], side, quantity, slices, ExecutionStrategy::VWAP);
         }
         return run_backtest_compare_mode(argv[2], side, quantity, slices);
+    }
+
+    if (mode == "backtest_batch") {
+        if (argc < 3 || argc > 5) {
+            print_usage(argv[0]);
+            return 2;
+        }
+
+        std::optional<std::string> runs_output;
+        std::optional<std::string> summary_output;
+        if (argc >= 4) {
+            runs_output = argv[3];
+        }
+        if (argc == 5) {
+            summary_output = argv[4];
+        }
+
+        return run_backtest_batch_mode(argv[2], runs_output, summary_output);
     }
 
     print_usage(argv[0]);

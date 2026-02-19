@@ -6,6 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_library(matching_engine
+    src/backtest_batch.cpp
     src/csv_replay.cpp
     src/execution_backtest.cpp
     src/matching_engine.cpp
@@ -29,7 +30,12 @@ add_executable(test_execution_backtest tests/test_execution_backtest.cpp)
 target_link_libraries(test_execution_backtest PRIVATE matching_engine)
 target_compile_definitions(test_execution_backtest PRIVATE TEST_DATA_DIR="${CMAKE_SOURCE_DIR}/tests/data")
 
+add_executable(test_backtest_batch tests/test_backtest_batch.cpp)
+target_link_libraries(test_backtest_batch PRIVATE matching_engine)
+target_compile_definitions(test_backtest_batch PRIVATE TEST_DATA_DIR="${CMAKE_SOURCE_DIR}/tests/data")
+
 enable_testing()
 add_test(NAME test_matching COMMAND test_matching)
 add_test(NAME test_csv_replay COMMAND test_csv_replay)
 add_test(NAME test_execution_backtest COMMAND test_execution_backtest)
+add_test(NAME test_backtest_batch COMMAND test_backtest_batch)

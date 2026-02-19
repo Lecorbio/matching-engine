@@ -1,0 +1,5 @@
+dataset,side,qty,slices,strategy
+tests/data/backtest_twap_basic.csv,BUY,6,3,TWAP
+tests/data/backtest_twap_basic.csv,BUY,6,3,VWAP
+tests/data/backtest_vwap_profile.csv,BUY,7,3,TWAP
+tests/data/backtest_vwap_profile.csv,BUY,7,3,VWAP
